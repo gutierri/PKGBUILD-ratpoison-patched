@@ -1,0 +1,123 @@
+From 9757c9c104d4572fc2d1033cd1e93f15a8264ebd Mon Sep 17 00:00:00 2001
+From: Gutierri Barboza <me@gutierri.me>
+Date: Fri, 8 Sep 2017 23:29:03 -0300
+Subject: [PATCH] standard XDG
+
+change the path of the configuration and history files
+on backward compatibility was implemented
+---
+ src/actions.c |  2 +-
+ src/conf.h    |  2 +-
+ src/globals.c | 15 +++++++++++++--
+ src/globals.h |  2 +-
+ src/history.c |  2 +-
+ src/main.c    |  4 ++--
+ 6 files changed, 19 insertions(+), 8 deletions(-)
+
+diff --git a/src/actions.c b/src/actions.c
+index e65ca0c..6300b07 100644
+--- a/src/actions.c
++++ b/src/actions.c
+@@ -4541,7 +4541,7 @@ cmd_chdir (int interactive UNUSED, struct cmdarg **args)
+ 
+   if (args[0] == NULL)
+     {
+-      dir = get_homedir ();
++      dir = get_homedir (1);
+       if (dir == NULL)
+         {
+           return cmdret_new (RET_FAILURE, "chdir: unable to find your HOME directory");
+diff --git a/src/conf.h b/src/conf.h
+index 708b688..d21bd25 100644
+--- a/src/conf.h
++++ b/src/conf.h
+@@ -108,7 +108,7 @@
+ #define MAX_HISTORY_SIZE 100
+ 
+ /* The default filename in which to store the history */
+-#define HISTORY_FILE ".ratpoison_history"
++#define HISTORY_FILE "ratpoison_history"
+ 
+ /* Use a visual bell in the input window */
+ #define VISUAL_BELL 1
+diff --git a/src/globals.c b/src/globals.c
+index 55f97b9..ff64965 100644
+--- a/src/globals.c
++++ b/src/globals.c
+@@ -21,6 +21,7 @@
+ #include "ratpoison.h"
+ 
+ #include <sys/types.h>
++#include <sys/stat.h>
+ #include <sys/wait.h>
+ 
+ #include <ctype.h>
+@@ -467,11 +468,21 @@ read_rc_file (FILE *file)
+ }
+ 
+ const char *
+-get_homedir (void)
++get_homedir (int settings_cache)
+ {
+   char *homedir;
++  int mkdir_status;
++
++  if (settings_cache)
++    homedir = xsprintf("%s/.config/ratpoison", getenv ("HOME"));
++  else
++    homedir = xsprintf("%s/.cache/ratpoison", getenv ("HOME"));
++
++  mkdir_status = mkdir(homedir, 0755);
++
++  if (mkdir_status == -1)
++    PRINT_ERROR ((homedir));
+ 
+-  homedir = getenv ("HOME");
+   if (homedir != NULL && homedir[0] == '\0')
+     homedir = NULL;
+ 
+diff --git a/src/globals.h b/src/globals.h
+index 4f96667..ffb304c 100644
+--- a/src/globals.h
++++ b/src/globals.h
+@@ -215,7 +215,7 @@ void chld_handler (int signum);
+ void set_sig_handler (int sig, void (*action)(int));
+ void set_close_on_exec (int fd);
+ void read_rc_file (FILE *file);
+-const char *get_homedir (void);
++const char *get_homedir (int settings_cache);
+ void clean_up (void);
+ 
+ #endif
+diff --git a/src/history.c b/src/history.c
+index 1466e89..0a449a0 100644
+--- a/src/history.c
++++ b/src/history.c
+@@ -39,7 +39,7 @@ get_history_filename (void)
+   const char *homedir;
+   char *filename;
+ 
+-  homedir = get_homedir ();
++  homedir = get_homedir (0);
+ 
+   if (homedir)
+     {
+diff --git a/src/main.c b/src/main.c
+index dbd4519..3e4b964 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -141,12 +141,12 @@ read_startup_files (const char *alt_rcfile)
+       char *filename;
+ 
+       /* first check $HOME/.ratpoisonrc */
+-      homedir = get_homedir ();
++      homedir = get_homedir (1);
+       if (!homedir)
+         PRINT_ERROR (("ratpoison: no home directory!?\n"));
+       else
+         {
+-          filename = xsprintf ("%s/.ratpoisonrc", homedir);
++          filename = xsprintf ("%s/ratpoisonrc", homedir);
+           fileptr = fopen (filename, "r");
+           if (fileptr == NULL && errno != ENOENT)
+             PRINT_ERROR (("ratpoison: could not open %s (%s)\n",

@@ -1,0 +1,181 @@
+From 3582fb80af02b941646b5a9ad183490d3fb630a7 Mon Sep 17 00:00:00 2001
+From: Lincoln de Sousa <lincoln@comum.org>
+Date: Sun, 2 Jan 2011 14:10:24 -0200
+Subject: [PATCH] First steps for supporting EWMH in Ratpoison
+
+This commit adds that hidden child window with hints _NET_WM_NAME and
+_NET_SUPPORTING_WM_CHECK. Now, all EWMH aware clients are able to
+recognize ratpoison and get its name.
+---
+ src/Makefile.am |  5 ++++-
+ src/ewmh.c      | 50 +++++++++++++++++++++++++++++++++++++++++++++++++
+ src/ewmh.h      | 26 +++++++++++++++++++++++++
+ src/globals.c   |  1 +
+ src/globals.h   |  1 +
+ src/main.c      |  3 +++
+ src/ratpoison.h |  1 +
+ 7 files changed, 86 insertions(+), 1 deletion(-)
+ create mode 100644 src/ewmh.c
+ create mode 100644 src/ewmh.h
+
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 7c508a1..59b7748 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -76,7 +76,10 @@ ratpoison_SOURCES	= actions.c		\
+ 			window.c		\
+ 			window.h		\
+ 			xrandr.c 		\
+-			xrandr.h
++			xrandr.h		\
++			ewmh.c			\
++			ewmh.h
++
+ 
+ TESTS =			test-sbuf-utf8-nconcat
+ check_PROGRAMS =	test-sbuf-utf8-nconcat
+diff --git a/src/ewmh.c b/src/ewmh.c
+new file mode 100644
+index 0000000..b3e30d5
+--- /dev/null
++++ b/src/ewmh.c
+@@ -0,0 +1,50 @@
++/* Copyright (C) 2010  Lincoln de Sousa <lincoln@comum.org>
++ *
++ * This file is part of ratpoison.
++ *
++ * ratpoison is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2, or (at your option)
++ * any later version.
++ *
++ * ratpoison is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this software; see the file COPYING.  If not, write to
++ * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
++ * Boston, MA 02111-1307 USA
++ */
++
++#include <X11/Xlib.h>
++#include "ratpoison.h"
++
++void
++init_ewmh (void)
++{
++  Window net_swc, root;
++  unsigned long data[1];
++
++  root = DefaultRootWindow (dpy);
++
++  /* Here we create a very simple window, it should not have any better
++   * setup since it'll never be shown. */
++  net_swc = XCreateSimpleWindow (dpy, root, 0, 0, 1, 1, 0, 0, 0);
++
++  /* Now it's time to setup EWMH properties _NET_WM_NAME and
++   * _NET_SUPPORTING_WM_CHECK (both in offscreen window and in root)  */
++  XChangeProperty (dpy, net_swc, _net_wm_name, xa_utf8_string,
++                   8, PropModeReplace, (unsigned char *) "Ratpoison", 9);
++
++  data[0] = net_swc;
++  XChangeProperty (dpy, net_swc, _net_supporting_wm_check,
++                   XA_WINDOW, 32, PropModeReplace,
++                   (unsigned char *) data, 1);
++
++  XChangeProperty (dpy, root,
++                   XInternAtom (dpy, "_NET_SUPPORTING_WM_CHECK", False),
++                   XA_WINDOW, 32, PropModeReplace,
++                   (unsigned char *) data, 1);
++}
+diff --git a/src/ewmh.h b/src/ewmh.h
+new file mode 100644
+index 0000000..d79f109
+--- /dev/null
++++ b/src/ewmh.h
+@@ -0,0 +1,26 @@
++/* Copyright (C) 2010  Lincoln de Sousa <lincoln@comum.org>
++ *
++ * This file is part of ratpoison.
++ *
++ * ratpoison is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2, or (at your option)
++ * any later version.
++ *
++ * ratpoison is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this software; see the file COPYING.  If not, write to
++ * the Free Software Foundation, Inc., 59 Temple Place, Suite 330,
++ * Boston, MA 02111-1307 USA
++ */
++
++#ifndef EWMH_H
++#define EWMH_H
++
++void init_ewmh (void);
++
++#endif
+diff --git a/src/globals.c b/src/globals.c
+index 55f97b9..83a217c 100644
+--- a/src/globals.c
++++ b/src/globals.c
+@@ -78,6 +78,7 @@ Atom _net_supported;
+ Atom _net_wm_window_type;
+ Atom _net_wm_window_type_dialog;
+ Atom _net_wm_name;
++Atom _net_supporting_wm_check;
+ 
+ LIST_HEAD (rp_screens);
+ rp_screen *rp_current_screen;
+diff --git a/src/globals.h b/src/globals.h
+index 4f96667..afe2563 100644
+--- a/src/globals.h
++++ b/src/globals.h
+@@ -139,6 +139,7 @@ extern Atom _net_supported;
+ extern Atom _net_wm_window_type;
+ extern Atom _net_wm_window_type_dialog;
+ extern Atom _net_wm_name;
++extern Atom _net_supporting_wm_check;
+ 
+ /* mouse properties */
+ extern int rat_x;
+diff --git a/src/main.c b/src/main.c
+index dbd4519..79c9f32 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -403,6 +403,8 @@ main (int argc, char *argv[])
+   _net_wm_window_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+   _net_wm_window_type_dialog = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+   _net_wm_name = XInternAtom(dpy, "_NET_WM_NAME", False);
++  _net_supporting_wm_check =
++    XInternAtom (dpy, "_NET_SUPPORTING_WM_CHECK", False);
+ 
+   /* Setup signal handlers. */
+   XSetErrorHandler(handler);
+@@ -422,6 +424,7 @@ main (int argc, char *argv[])
+   init_window_stuff ();
+   init_xrandr ();
+   init_screens ();
++  init_ewmh ();
+ 
+   init_frame_lists ();
+   update_modifier_map ();
+diff --git a/src/ratpoison.h b/src/ratpoison.h
+index 5dcb2e1..6566626 100644
+--- a/src/ratpoison.h
++++ b/src/ratpoison.h
+@@ -93,6 +93,7 @@ do {                                            \
+ #include "format.h"
+ #include "utf8.h"
+ #include "util.h"
++#include "ewmh.h"
+ 
+ void set_extents_of_fontset (XFontSet font);
+ XFontSet load_query_font_set (Display *disp, const char *fontset_name);

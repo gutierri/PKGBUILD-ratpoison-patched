@@ -1,0 +1,58 @@
+From f52dce3fd73ec222772aed723722207874746a00 Mon Sep 17 00:00:00 2001
+From: Lincoln de Sousa <lincoln@comum.org>
+Date: Sun, 2 Jan 2011 18:51:44 -0200
+Subject: [PATCH] Setting the _NET_CURRENT_DESKTOP hint
+
+Updating which desktop/group is currently selected. This update is done
+from the `set_current_group_1()' function. This seems to be the only
+place that does something like this. Use `gselect' command to see it
+working.
+---
+ src/ewmh.c  | 12 ++++++++++++
+ src/ewmh.h  |  1 +
+ src/group.c |  1 +
+ 3 files changed, 14 insertions(+)
+
+diff --git a/src/ewmh.c b/src/ewmh.c
+index e4c3b47..755fa2d 100644
+--- a/src/ewmh.c
++++ b/src/ewmh.c
+@@ -60,3 +60,15 @@ ewmh_set_number_of_desktops (void)
+                    XA_CARDINAL, 32, PropModeReplace,
+                    (unsigned char *) data, 1);
+ }
++
++void
++ewmh_set_current_desktop (int group)
++{
++  unsigned long data[1];
++
++  data[0] = group;
++  XChangeProperty (dpy, DefaultRootWindow (dpy),
++                   XInternAtom (dpy, "_NET_CURRENT_DESKTOP", False),
++                   XA_CARDINAL, 32, PropModeReplace,
++                   (unsigned char *) data, 1);
++}
+diff --git a/src/ewmh.h b/src/ewmh.h
+index 88a824f..5f4ae5d 100644
+--- a/src/ewmh.h
++++ b/src/ewmh.h
+@@ -23,5 +23,6 @@
+ 
+ void init_ewmh (void);
+ void ewmh_set_number_of_desktops (void);
++void ewmh_set_current_desktop (int group);
+ 
+ #endif
+diff --git a/src/group.c b/src/group.c
+index c8f41a1..01d6e27 100644
+--- a/src/group.c
++++ b/src/group.c
+@@ -33,6 +33,7 @@ set_current_group_1 (rp_group *g)
+     g->last_access = counter++;
+ 
+   ewmh_set_number_of_desktops ();
++  ewmh_set_current_desktop (g->number);
+ }
+ 
+ void

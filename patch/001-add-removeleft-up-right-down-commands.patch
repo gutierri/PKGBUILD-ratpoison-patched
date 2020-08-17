@@ -1,0 +1,593 @@
+From 36d0ccc0fb6624289afafd0ef07aa5eac2fcfcac Mon Sep 17 00:00:00 2001
+From: "Bernhard R. Link" <brlink@debian.org>
+Date: Mon, 28 Jan 2019 22:42:59 +0100
+Subject: add removeleft/up/right/down commands
+
+This patch adds new removeleft/up/right/down commands to extend the current
+frame in the given direction, removing all frames in the way.
+Default key-bindings are C-t M-arrow-keys.
+
+* src/split.c: new functions enlarge_frame_{left,up,right,down}
+to enlarge a frame in a given direction, optionally removing all
+direct adjacent frames.
+(remove_frame): moved code to new rotine maximaize_all_in_frame.
+(find_frame_{left,up,right,down}): try harder to find a frame in
+the specified direction. (So that it also works with parts of
+the screen not being in any frame).
+
+* src/split.h: added prototypes for enlarge_frame_{left,up,right,down}
+
+* src/actions.c: Added cmd_remove{left,up,right,down} calling
+enlarge_frame_*, added C-t M-{Left,Right,Up,Down} as keybindings.
+
+* doc/ratpoison.1: Document the new commands and keybindings.
+---
+ doc/ratpoison.mdoc.1 |  12 ++
+ src/actions.c        |  44 +++++
+ src/split.c          | 371 ++++++++++++++++++++++++++++++++++++++++---
+ src/split.h          |   4 +
+ 4 files changed, 408 insertions(+), 23 deletions(-)
+
+diff --git a/doc/ratpoison.mdoc.1 b/doc/ratpoison.mdoc.1
+index 40badcb..ebfef14 100644
+--- a/doc/ratpoison.mdoc.1
++++ b/doc/ratpoison.mdoc.1
+@@ -644,6 +644,18 @@ to get a list of all attached commands.
+ .It Ic remove Pq Ic C\-t R
+ Remove the current frame and extend some frames around to fill the
+ remaining gap.
++.It Ic removedown Pq Ic C\-t M\-Down
++Kill frames directly below the current frame, extending the current
++frame as much as possible.
++.It Ic removeleft Pq Ic C\-t M\-Left
++Kill frames directly left of the current frame, extending the current
++frame as much as possible.
++.It Ic removeup Pq Ic C\-t M\-Up
++Kill frames directly above the current frame, extending the current
++frame as much as possible.
++.It Ic removeright Pq Ic C\-t M\-Right
++Kill frames directly right of the current frame, extending the current
++frame as much as possible.
+ .It Ic resize Oo Ar deltax deltay Oc Pq Ic C\-t r
+ If
+ .Ar deltax
+diff --git a/src/actions.c b/src/actions.c
+index 73e60f5..800be7e 100644
+--- a/src/actions.c
++++ b/src/actions.c
+@@ -209,6 +209,10 @@ static cmdret *cmd_exchangeup (int interactive, struct cmdarg **args);
+ static cmdret *cmd_exchangedown (int interactive, struct cmdarg **args);
+ static cmdret *cmd_exchangeleft (int interactive, struct cmdarg **args);
+ static cmdret *cmd_exchangeright (int interactive, struct cmdarg **args);
++static cmdret *cmd_removeup (int interactive, struct cmdarg **args);
++static cmdret *cmd_removedown (int interactive, struct cmdarg **args);
++static cmdret *cmd_removeleft (int interactive, struct cmdarg **args);
++static cmdret *cmd_removeright (int interactive, struct cmdarg **args);
+ static cmdret *cmd_swap (int interactive, struct cmdarg **args);
+ static cmdret *cmd_frestore (int interactive, struct cmdarg **args);
+ static cmdret *cmd_fselect (int interactive, struct cmdarg **args);
+@@ -551,6 +555,10 @@ init_user_commands(void)
+                "Hook: ", arg_HOOK,
+                "Command: ", arg_COMMAND);
+   add_command ("remove",        cmd_remove,     0, 0, 0);
++  add_command ("removeup",	cmd_removeup,   0, 0, 0);
++  add_command ("removedown",	cmd_removedown, 0, 0, 0);
++  add_command ("removeleft",	cmd_removeleft, 0, 0, 0);
++  add_command ("removeright",	cmd_removeright, 0, 0, 0);
+   add_command ("resize",        cmd_resize,     2, 0, 2,
+                "", arg_NUMBER,
+                "", arg_NUMBER);
+@@ -1008,6 +1016,10 @@ initialize_default_keybindings (void)
+   add_keybinding (XK_Down, 0, "focusdown", map);
+   add_keybinding (XK_Q, 0, "only", map);
+   add_keybinding (XK_R, 0, "remove", map);
++  add_keybinding (XK_Left, RP_META_MASK, "removeleft", map);
++  add_keybinding (XK_Right, RP_META_MASK, "removeright", map);
++  add_keybinding (XK_Up, RP_META_MASK, "removeup", map);
++  add_keybinding (XK_Down, RP_META_MASK, "removedown", map);
+   add_keybinding (XK_f, 0, "fselect", map);
+   add_keybinding (XK_f, RP_CONTROL_MASK, "fselect", map);
+   add_keybinding (XK_F, 0, "curframe", map);
+@@ -3259,6 +3271,38 @@ cmd_remove (int interactive UNUSED, struct cmdarg **args UNUSED)
+   return cmdret_new (RET_SUCCESS, NULL);
+ }
+ 
++cmdret *
++cmd_removeup (int interactive UNUSED, struct cmdarg **args UNUSED)
++{
++  push_frame_undo (rp_current_screen); /* fdump to stack */
++  enlarge_frame_up (current_frame(), 1);
++  return cmdret_new(RET_SUCCESS, NULL);
++}
++
++cmdret *
++cmd_removedown (int interactive UNUSED, struct cmdarg **args UNUSED)
++{
++  push_frame_undo (rp_current_screen); /* fdump to stack */
++  enlarge_frame_down (current_frame(), 1);
++  return cmdret_new(RET_SUCCESS, NULL);
++}
++
++cmdret *
++cmd_removeleft (int interactive UNUSED, struct cmdarg **args UNUSED)
++{
++  push_frame_undo (rp_current_screen); /* fdump to stack */
++  enlarge_frame_left (current_frame(), 1);
++  return cmdret_new(RET_SUCCESS, NULL);
++}
++
++cmdret *
++cmd_removeright (int interactive UNUSED, struct cmdarg **args UNUSED)
++{
++  push_frame_undo (rp_current_screen); /* fdump to stack */
++  enlarge_frame_right (current_frame(), 1);
++  return cmdret_new(RET_SUCCESS, NULL);
++}
++
+ cmdret *
+ cmd_shrink (int interactive UNUSED, struct cmdarg **args UNUSED)
+ {
+diff --git a/src/split.c b/src/split.c
+index a9d69cd..6ebc174 100644
+--- a/src/split.c
++++ b/src/split.c
+@@ -694,6 +694,301 @@ frame_overlaps (rp_frame *frame)
+   return 0;
+ }
+ 
++
++static void
++delete_frame (rp_frame *frame)
++{
++  rp_screen *s;
++  rp_window *win;
++
++  if (frame == NULL) return;
++
++  s = frames_screen (frame);
++
++  list_del (&frame->node);
++  win = find_window_number (frame->win_number);
++  hide_window (win);
++  hide_others (win);
++
++  frame_free (s, frame);
++}
++
++static void
++maximize_all_in_frame (rp_frame *frame)
++{
++  rp_window *win;
++
++  /* The current frame fits into the new space so keep its
++     new frame parameters and maximize the window to fit
++     the new frame size. */
++  if (frame->win_number != EMPTY)
++    {
++      win = find_window_number (frame->win_number);
++      maximize_all_windows_in_frame (frame);
++      XRaiseWindow (dpy, win->w);
++    }
++}
++
++void
++enlarge_frame_left (rp_frame *frame, int remove)
++{
++  rp_screen *s = frames_screen (frame);
++  rp_frame *cur;
++  struct list_head *tmp, *iter;
++
++  int old_x = frame_left(frame);
++  int new_x = defaults.padding_left;
++
++  list_for_each_entry (cur, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_top(frame) < frame_bottom(cur)
++          && frame_top(cur) < frame_bottom(frame))
++        {
++          int cur_border = frame_right (cur);
++
++          if (cur_border > new_x && cur_border <= old_x &&
++              (!remove || cur_border < old_x))
++            new_x = cur_border;
++        }
++    }
++  if (remove) list_for_each_safe_entry (cur, iter, tmp, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_top(frame) < frame_bottom(cur)
++          && frame_top(cur) < frame_bottom(frame))
++        {
++          int cur_border = frame_right (cur);
++          int opposite_border = frame_left (cur);
++
++          if (remove && cur_border == old_x)
++            {
++              if (opposite_border == new_x)
++                {
++                  if (frame_top(frame) > frame_top(cur))
++                    {
++                      cur->height = frame_top(frame) - frame_top(cur);
++                      maximize_all_in_frame(cur);
++                    }
++		  else if (frame_bottom(frame) < frame_bottom(cur))
++                    {
++                      cur->height = frame_bottom(cur) - frame_bottom(frame);
++                      cur->y = frame_bottom(frame);
++                      maximize_all_in_frame(cur);
++                    }
++		  else
++                      delete_frame(cur);
++                }
++              else
++                {
++                  cur->width -= old_x - new_x;
++                  maximize_all_in_frame(cur);
++                }
++            }
++        }
++    }
++  frame->width += frame->x - new_x;
++  frame->x = new_x;
++  maximize_all_in_frame(frame);
++}
++
++void
++enlarge_frame_right (rp_frame *frame, int remove)
++{
++  rp_screen *s = frames_screen (frame);
++  rp_frame *cur;
++  struct list_head *tmp, *iter;
++
++  int old_x = frame_right(frame);
++  int new_x = defaults.padding_left + screen_width(s);
++
++  list_for_each_entry (cur, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_top(frame) < frame_bottom(cur)
++          && frame_top(cur) < frame_bottom(frame))
++        {
++          int cur_border = frame_left (cur);
++
++          if (cur_border < new_x && cur_border >= old_x &&
++              (!remove || cur_border > old_x))
++            new_x = cur_border;
++        }
++    }
++  if (remove) list_for_each_safe_entry (cur, iter, tmp, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_top(frame) < frame_bottom(cur)
++          && frame_top(cur) < frame_bottom(frame))
++        {
++          int cur_border = frame_left (cur);
++          int opposite_border = frame_right (cur);
++
++          if (remove && cur_border == old_x)
++            {
++              if (opposite_border == new_x)
++                {
++                  if (frame_top(frame) > frame_top(cur))
++                    {
++                      cur->height = frame_top(frame) - frame_top(cur);
++                      maximize_all_in_frame(cur);
++                    }
++		  else if (frame_bottom(frame) < frame_bottom(cur))
++                    {
++                      cur->height = frame_bottom(cur) - frame_bottom(frame);
++                      cur->y = frame_bottom(frame);
++                      maximize_all_in_frame(cur);
++                    }
++		  else
++                      delete_frame(cur);
++                }
++              else
++                {
++                  cur->width -= new_x - old_x;
++                  cur->x += new_x - old_x;
++                  maximize_all_in_frame(cur);
++                }
++            }
++        }
++    }
++  frame->width = new_x - frame->x;
++  maximize_all_in_frame(frame);
++}
++
++void
++enlarge_frame_up (rp_frame *frame, int remove)
++{
++  rp_screen *s = frames_screen (frame);
++  rp_frame *cur;
++  struct list_head *tmp, *iter;
++
++  int old_y = frame_top(frame);
++  int new_y = defaults.padding_top;
++
++  list_for_each_entry (cur, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_left(frame) < frame_right(cur)
++          && frame_left(cur) < frame_right(frame))
++        {
++          int cur_border = frame_bottom (cur);
++
++          if (cur_border > new_y && cur_border <= old_y &&
++              (!remove || cur_border < old_y))
++            new_y = cur_border;
++        }
++    }
++  if (remove) list_for_each_safe_entry (cur, iter, tmp, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_left(frame) < frame_right(cur)
++          && frame_left(cur) < frame_right(frame))
++        {
++          int cur_border = frame_bottom (cur);
++          int opposite_border = frame_top (cur);
++
++          if (remove && cur_border == old_y)
++            {
++              if (opposite_border == new_y)
++                {
++                  if (frame_left(frame) > frame_left(cur))
++                    {
++                      cur->width = frame_left(frame) - frame_left(cur);
++                      maximize_all_in_frame(cur);
++                    }
++		  else if (frame_right(frame) < frame_right(cur))
++                    {
++                      cur->width = frame_right(cur) - frame_right(frame);
++                      cur->x = frame_right(frame);
++                      maximize_all_in_frame(cur);
++                    }
++		  else
++                      delete_frame(cur);
++                }
++              else
++                {
++                  cur->height -= old_y - new_y;
++                  maximize_all_in_frame(cur);
++                }
++            }
++        }
++    }
++  frame->height += frame->y - new_y;
++  frame->y = new_y;
++  maximize_all_in_frame(frame);
++}
++
++void
++enlarge_frame_down (rp_frame *frame, int remove)
++{
++  rp_screen *s = frames_screen (frame);
++  rp_frame *cur;
++  struct list_head *tmp, *iter;
++
++  int old_y = frame_bottom(frame);
++  int new_y = defaults.padding_top + screen_height(s);
++
++  list_for_each_entry (cur, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_left(frame) < frame_right(cur)
++          && frame_left(cur) < frame_right(frame))
++        {
++          int cur_border = frame_top (cur);
++
++          if (cur_border < new_y && cur_border >= old_y &&
++              (!remove || cur_border > old_y))
++            new_y = cur_border;
++        }
++    }
++  if (remove) list_for_each_safe_entry (cur, iter, tmp, &s->frames, node)
++    {
++      if (cur == frame)
++        continue;
++      if (frame_left(frame) < frame_right(cur)
++          && frame_left(cur) < frame_right(frame))
++        {
++          int cur_border = frame_top (cur);
++          int opposite_border = frame_bottom (cur);
++
++          if (remove && cur_border == old_y)
++            {
++              if (opposite_border == new_y)
++                {
++                  if (frame_left(frame) > frame_left(cur))
++                    {
++                      cur->width = frame_left(frame) - frame_left(cur);
++                      maximize_all_in_frame(cur);
++                    }
++		  else if (frame_right(frame) < frame_right(cur))
++                    {
++                      cur->width = frame_right(cur) - frame_right(frame);
++                      cur->x = frame_right(frame);
++                      maximize_all_in_frame(cur);
++                    }
++		  else
++                      delete_frame(cur);
++                }
++              else
++                {
++                  cur->height -= new_y - old_y;
++                  cur->y += new_y - old_y;
++                  maximize_all_in_frame(cur);
++                }
++            }
++        }
++    }
++  frame->height = new_y - frame->y;
++  maximize_all_in_frame(frame);
++}
++
+ void
+ remove_frame (rp_frame *frame)
+ {
+@@ -791,17 +1086,7 @@ remove_frame (rp_frame *frame)
+         }
+ 
+       if (fits)
+-        {
+-          /* The current frame fits into the new space so keep its
+-             new frame parameters and maximize the window to fit
+-             the new frame size. */
+-          if (cur->win_number != EMPTY)
+-            {
+-              rp_window *new = find_window_number (cur->win_number);
+-              maximize_all_windows_in_frame (cur);
+-              XRaiseWindow (dpy, new->w);
+-            }
+-        }
++        maximize_all_in_frame(cur);
+       else
+         {
+           memcpy (cur, &tmp_frame, sizeof (rp_frame));
+@@ -1003,17 +1288,27 @@ find_frame_up (rp_frame *frame)
+   rp_screen *s;
+   rp_frame *cur;
+ 
++  rp_frame *best_frame_yet = NULL;
++  int best_x_yet = frame_right_abs(frame) + 1;
++
+   list_for_each_entry (s, &rp_screens, node)
+     {
+       list_for_each_entry (cur, &s->frames, node)
+         {
+           if (frame_top_abs (frame) == frame_bottom_abs (cur))
+-            if (frame_right_abs (frame) >= frame_left_abs (cur) && frame_left_abs (frame) <= frame_right_abs (cur))
+-              return cur;
++	    {
++              if (frame_left_abs (frame) >= frame_left_abs(cur) && frame_left_abs(frame) <= frame_right_abs(cur))
++                return cur;
++              if (frame_left_abs(cur) >= frame_left_abs(frame) && frame_left_abs(cur) < best_x_yet )
++                {
++                  best_x_yet = frame_left_abs(cur);
++                  best_frame_yet = cur;
++                }
++            }
+         }
+     }
+ 
+-  return NULL;
++  return best_frame_yet;
+ }
+ 
+ rp_frame *
+@@ -1022,17 +1317,27 @@ find_frame_down (rp_frame *frame)
+   rp_screen *s;
+   rp_frame *cur;
+ 
++  rp_frame *best_frame_yet = NULL;
++  int best_x_yet = frame_right_abs(frame) + 1;
++
+   list_for_each_entry (s, &rp_screens, node)
+     {
+       list_for_each_entry (cur, &s->frames, node)
+         {
+           if (frame_bottom_abs (frame) == frame_top_abs (cur))
+-            if (frame_right_abs (frame) >= frame_left_abs (cur) && frame_left_abs (frame) <= frame_right_abs (cur))
+-              return cur;
++            {
++              if (frame_left_abs(frame) >= frame_left_abs(cur) && frame_left_abs(frame) < frame_right_abs(cur))
++                return cur;
++              if (frame_left_abs(cur) >= frame_left_abs(frame) && frame_left_abs(cur) < best_x_yet)
++                {
++                  best_x_yet = frame_left_abs(cur);
++                  best_frame_yet = cur;
++                }
++            }
+         }
+     }
+ 
+-  return NULL;
++  return best_frame_yet;
+ }
+ 
+ rp_frame *
+@@ -1041,17 +1346,27 @@ find_frame_left (rp_frame *frame)
+   rp_screen *s;
+   rp_frame *cur;
+ 
++  rp_frame *best_frame_yet = NULL;
++  int best_y_yet = frame_bottom_abs(frame) + 1;
++
+   list_for_each_entry (s, &rp_screens, node)
+     {
+       list_for_each_entry (cur, &s->frames, node)
+         {
+           if (frame_left_abs (frame) == frame_right_abs (cur))
+-            if (frame_top_abs (frame) >= frame_top_abs (cur) && frame_top_abs (frame) < frame_bottom_abs (cur))
+-              return cur;
++            {
++              if (frame_top_abs (frame) >= frame_top_abs(cur) && frame_top_abs(frame) < frame_bottom_abs(cur))
++                return cur;
++              if (frame_top_abs(cur) >= frame_top_abs(frame) && frame_top_abs(cur) < best_y_yet)
++                {
++                  best_y_yet = frame_top_abs(cur);
++                  best_frame_yet = cur;
++                }
++            }
+         }
+     }
+ 
+-  return NULL;
++  return best_frame_yet;
+ }
+ 
+ rp_frame *
+@@ -1060,17 +1375,27 @@ find_frame_right (rp_frame *frame)
+   rp_screen *s;
+   rp_frame *cur;
+ 
++  rp_frame *best_frame_yet = NULL;
++  int best_y_yet = frame->y + frame->height + 1;
++
+   list_for_each_entry (s, &rp_screens, node)
+     {
+       list_for_each_entry (cur, &s->frames, node)
+         {
+           if (frame_right_abs (frame) == frame_left_abs (cur))
+-            if (frame_top_abs (frame) >= frame_top_abs (cur) && frame_top_abs (frame) < frame_bottom_abs (cur))
+-              return cur;
++            {
++          if (frame_top_abs(frame) >= frame_top_abs(cur) && frame_top_abs(frame) < frame_bottom_abs(cur))
++            return cur;
++          if (frame_top_abs(cur) >= frame_top_abs(frame) && frame_top_abs(cur) < best_y_yet )
++            {
++              best_y_yet = frame_top_abs(cur);
++              best_frame_yet = cur;
++            }
++            }
+         }
+     }
+ 
+-  return NULL;
++  return best_frame_yet;
+ }
+ 
+ rp_frame *
+diff --git a/src/split.h b/src/split.h
+index f125df6..ac1cccf 100644
+--- a/src/split.h
++++ b/src/split.h
+@@ -32,6 +32,10 @@ void resize_shrink_to_window (rp_frame *frame);
+ void resize_frame_horizontally (rp_frame *frame, int diff);
+ void resize_frame_vertically (rp_frame *frame, int diff);
+ void remove_frame (rp_frame *frame);
++void enlarge_frame_left (rp_frame *frame, int remove);
++void enlarge_frame_up (rp_frame *frame, int remove);
++void enlarge_frame_right (rp_frame *frame, int remove);
++void enlarge_frame_down (rp_frame *frame, int remove);
+ rp_window *find_window_for_frame (rp_frame *frame);
+ rp_frame *find_windows_frame (rp_window *win);
+ int num_frames (rp_screen *s);

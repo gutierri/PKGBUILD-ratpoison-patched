@@ -1,0 +1,108 @@
+diff --git a/doc/ratpoison.mdoc.1 b/doc/ratpoison.mdoc.1
+index 4db1a7d..c791317 100644
+--- a/doc/ratpoison.mdoc.1
++++ b/doc/ratpoison.mdoc.1
+@@ -1158,6 +1158,15 @@ been last time this window was focused, or not.
+ Default is
+ .Li 0
+ (off).
++.It Cm obeyresizehints Li 0 | 1
++Determine whether to obey resize hints from windows
++.Pq Li 1
++or not
++.Pq Li 0 .
++This typically creates a gap between term windows and the frame.
++.Pp
++Default is
++.Li 1 .
+ .It Cm rudeness Ar number
+ Show or set what kind of windows are allowed to jostle into the
+ foreground.
+diff --git a/src/actions.c b/src/actions.c
+index e65ca0c..b4f18a1 100644
+--- a/src/actions.c
++++ b/src/actions.c
+@@ -159,6 +159,7 @@ static cmdret * set_border (struct cmdarg **args);
+ static cmdret * set_onlyborder(struct cmdarg **args);
+ static cmdret * set_barborder (struct cmdarg **args);
+ static cmdret * set_barinpadding (struct cmdarg **args);
++static cmdret * set_obeyresizehints(struct cmdarg **args);
+ static cmdret * set_inputwidth (struct cmdarg **args);
+ static cmdret * set_waitcursor (struct cmdarg **args);
+ static cmdret * set_winfmt (struct cmdarg **args);
+@@ -362,6 +363,7 @@ init_set_vars (void)
+   add_set_var ("maxsizegravity", set_maxsizegravity, 1, "", arg_GRAVITY);
+   add_set_var ("maxundos", set_maxundos, 1, "", arg_NUMBER);
+   add_set_var ("msgwait", set_msgwait, 1, "", arg_NUMBER);
++  add_set_var ("obeyresizehints", set_obeyresizehints, 1, "", arg_NUMBER);
+   add_set_var ("padding", set_padding, 4, "", arg_NUMBER, "", arg_NUMBER, "",
+                arg_NUMBER, "", arg_NUMBER);
+   add_set_var ("resizeunit", set_resizeunit, 1, "", arg_NUMBER);
+@@ -3937,6 +3939,30 @@ cmd_msgwait (int interactive UNUSED, struct cmdarg **args)
+   return set_msgwait (args);
+ }
+ 
++static cmdret *
++set_obeyresizehints (struct cmdarg **args)
++{
++  rp_window *win;
++
++  if (args[0] == NULL)
++    return cmdret_new (RET_SUCCESS, "%d", defaults.obey_resize_hints);
++
++  if (ARG(0, number) != 0 && ARG(0, number) != 1)
++    return cmdret_new (RET_FAILURE, "set obeyresizehints: invalid argument");
++
++  defaults.obey_resize_hints = ARG(0, number);
++
++  /* Update all the visible windows. */
++  list_for_each_entry (win,&rp_mapped_window,node)
++    {
++      if (win_get_frame (win))
++        maximize (win);
++    }
++
++  return cmdret_new (RET_SUCCESS, NULL);
++}
++
++
+ static cmdret *
+ set_framemsgwait (struct cmdarg **args)
+ {
+diff --git a/src/data.h b/src/data.h
+index ac87fea..0a2b53f 100644
+--- a/src/data.h
++++ b/src/data.h
+@@ -244,6 +244,7 @@ struct rp_defaults
+   int input_window_size;
+   int window_border_width;
+   int only_border;
++  int obey_resize_hints;
+ 
+   int bar_x_padding;
+   int bar_y_padding;
+diff --git a/src/main.c b/src/main.c
+index dbd4519..0dbac74 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -228,6 +228,7 @@ init_defaults (void)
+   defaults.input_window_size   = 200;
+   defaults.window_border_width = 1;
+   defaults.only_border         = 1;
++  defaults.obey_resize_hints   = 1;
+   defaults.bar_x_padding       = 4;
+   defaults.bar_y_padding       = 0;
+   defaults.bar_location        = NorthEastGravity;
+diff --git a/src/manage.c b/src/manage.c
+index 510f730..78be591 100644
+--- a/src/manage.c
++++ b/src/manage.c
+@@ -716,7 +716,7 @@ maximize_normal (rp_window *win)
+ 
+   /* Make sure we maximize to the nearest Resize Increment specified
+      by the window */
+-  if (win->hints->flags & PResizeInc)
++  if (win->hints->flags & PResizeInc && defaults.obey_resize_hints)
+     {
+       int amount;
+       int delta;

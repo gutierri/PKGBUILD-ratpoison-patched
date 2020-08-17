@@ -1,0 +1,73 @@
+From b1fe1b128139d542ab198b2d137c8b16bce69593 Mon Sep 17 00:00:00 2001
+From: Lincoln de Sousa <lincoln@comum.org>
+Date: Sun, 2 Jan 2011 18:45:52 -0200
+Subject: [PATCH] Setting the _NET_NUMBER_OF_DESKTOPS EWMH hint
+
+This hint is being updated in all places that the group list is
+changed. To see it working, use `gnew' and `gdelete' commands.
+---
+ src/ewmh.c  | 12 ++++++++++++
+ src/ewmh.h  |  1 +
+ src/group.c |  4 ++++
+ 3 files changed, 17 insertions(+)
+
+diff --git a/src/ewmh.c b/src/ewmh.c
+index b3e30d5..e4c3b47 100644
+--- a/src/ewmh.c
++++ b/src/ewmh.c
+@@ -48,3 +48,15 @@ init_ewmh (void)
+                    XA_WINDOW, 32, PropModeReplace,
+                    (unsigned char *) data, 1);
+ }
++
++void
++ewmh_set_number_of_desktops (void)
++{
++  unsigned long data[1];
++
++  data[0] = list_size (&rp_groups);
++  XChangeProperty (dpy, DefaultRootWindow (dpy),
++                   XInternAtom (dpy, "_NET_NUMBER_OF_DESKTOPS", False),
++                   XA_CARDINAL, 32, PropModeReplace,
++                   (unsigned char *) data, 1);
++}
+diff --git a/src/ewmh.h b/src/ewmh.h
+index d79f109..88a824f 100644
+--- a/src/ewmh.h
++++ b/src/ewmh.h
+@@ -22,5 +22,6 @@
+ #define EWMH_H
+ 
+ void init_ewmh (void);
++void ewmh_set_number_of_desktops (void);
+ 
+ #endif
+diff --git a/src/group.c b/src/group.c
+index 10d65fc..c8f41a1 100644
+--- a/src/group.c
++++ b/src/group.c
+@@ -31,6 +31,8 @@ set_current_group_1 (rp_group *g)
+   rp_current_group = g;
+   if (g)
+     g->last_access = counter++;
++
++  ewmh_set_number_of_desktops ();
+ }
+ 
+ void
+@@ -169,6 +171,7 @@ group_add_new_group (char *name)
+ 
+   list_add_tail (&g->node, &rp_groups);
+ 
++  ewmh_set_number_of_desktops ();
+   return g;
+ }
+ 
+@@ -661,6 +664,7 @@ group_delete_group (rp_group *g)
+ 
+       list_del (&(g->node));
+       group_free (g);
++      ewmh_set_number_of_desktops ();
+       return GROUP_DELETE_GROUP_OK;
+     }
+   else

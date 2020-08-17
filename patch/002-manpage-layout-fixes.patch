@@ -1,0 +1,201 @@
+From 7b1ae88874f5cf049e7f56830c8831dcada9a869 Mon Sep 17 00:00:00 2001
+From: "Bernhard R. Link" <brlink@debian.org>
+Date: Sun, 4 May 2014 11:03:43 +0200
+Subject: manpage layout fixes
+
+---
+ doc/ratpoison.mdoc.1 | 46 ++++++++++++++++++++++----------------------
+ 1 file changed, 23 insertions(+), 23 deletions(-)
+
+diff --git a/doc/ratpoison.mdoc.1 b/doc/ratpoison.mdoc.1
+index ebfef14..043f364 100644
+--- a/doc/ratpoison.mdoc.1
++++ b/doc/ratpoison.mdoc.1
+@@ -172,7 +172,7 @@ as new way to call
+ .Ar command .
+ .It Ic bind Ar key command
+ alias for
+-.Qq Ic definekey Li root Ar key command
++.Qq Ic definekey Cm root Ar key command
+ .It Ic banish
+ .Pq Ic C\-t b
+ Banish the rat cursor to the lower right corner of the screen.
+@@ -282,9 +282,9 @@ Update the default escape key to
+ .Ar key .
+ .Pp
+ Strictly speaking it updates the
+-.Ic readkey Li root
++.Ic readkey Cm root
+ command in the keymap
+-.Li top
++.Cm top
+ to
+ .Ar key ,
+ the
+@@ -306,11 +306,11 @@ if
+ .Ar key
+ has no modifiers.
+ (If
+-.Ic set Ar topkmap
++.Ic set Cm topkmap
+ was called with an argument other than
+-.Ar top
++.Cm top
+ that will be used instead of
+-.Ar top . )
++.Cm top . )
+ .It Ic exchangedown Pq Ic C\-t C\-Down
+ Exchange the window in the current frame with the window in the frame
+ below the current frame.
+@@ -439,7 +439,7 @@ If the optional parameter
+ is given, list all keybindings in this keymap, otherwise list all key
+ bindings in keymap
+ .Li root .
+-.It Ic hsplit Oo Ar l Ns Li / Ns Ar p | Oo Li \- Oc Ns Ar pixels Oc Pq Ic C\-t S
++.It Ic hsplit Oo Ar l Ns Cm / Ns Ar p | Oo Cm \- Oc Ns Ar pixels Oc Pq Ic C\-t S
+ Split the current frame into left frame and a right frame.
+ If no parameter is given, split in halves.
+ If two numbers separated by a slash
+@@ -595,7 +595,7 @@ relative to the current position.
+ Simulate a rat click with
+ .Ar button
+ (button 1=left button if none given).
+-.It Ic rathold Cm ( up | down ) Op Ar button
++.It Ic rathold Bro Cm up | down Brc Op Ar button
+ Simulate pressing|releasing rat button
+ .Ar button
+ (1=left button if none given).
+@@ -614,7 +614,7 @@ configuration: by pressing
+ which is the only key in the keymap
+ top ,
+ the command
+-.Qq Ic readkey Ar root
++.Qq Ic readkey Cm root
+ is executed.
+ The next key then executes the command in keymap
+ .Li root
+@@ -701,7 +701,7 @@ Output the list of all screens.
+ The screens are separated by commas. Each screen is shown as 6 values:
+ its number, its x-coordinate, its y-coordinate, its width, its height
+ and if it is currently selected (1=true, 0=false).
+-.It Ic select ( Cm \- | Ar name | Ar number ) Pq Ic C\-t \&'
++.It Ic select Bro Cm \- | Ar name | Ar number Brc Pq Ic C\-t \&'
+ If a number is given, switch to the window with number
+ .Ar number .
+ If a name is given, switch to the window in the current group with
+@@ -761,7 +761,7 @@ command.
+ Switch to the screen
+ .Ar screennumber .
+ (If you have multiple physical ones.)
+-.It Ic startup_message Cm ( on | off )
++.It Ic startup_message Brq Cm on | off
+ Select whether
+ .Nm
+ will show a startup message or not.
+@@ -824,7 +824,7 @@ Spawn a shell executing
+ after showing a message with the command.
+ .It Ic version Pq Ic C\-t v
+ Output version and compile time information.
+-.It Ic vsplit Oo Ar l Ns Li / Ns Ar p | Ar "pixels-from-top" | Li \- Ns Ar "pixels-from-bottom" Oc Pq Ic C\-t s
++.It Ic vsplit Oo Ar l Ns Cm / Ns Ar p | Ar "pixels-from-top" | Cm \- Ns Ar "pixels-from-bottom" Oc Pq Ic C\-t s
+ Split the current frame into upper frame and a lower frame.
+ If no parameter is given, split in halves.
+ If two numbers separated by a slash
+@@ -846,7 +846,7 @@ wide or the upper one
+ high, depending whether there is a
+ .Dq Li \-
+ in front of the number or not.
+-.It Ic warp Cm ( on | off )
++.It Ic warp Brq Cm on | off
+ Select if focusing a window moves the rat cursor to the place it had been last
+ time this window was focused, or not.
+ This command is deprecated, please set the
+@@ -957,7 +957,7 @@ can undo with the
+ command.
+ .Pp
+ Default is 20.
+-.It Cm wingravity Li nw | w | sw | n | c | s | ne | e | se
++.It Cm wingravity Brq Cm nw | w | sw | n | c | s | ne | e | se
+ Set the default gravity new normal windows will get.
+ Possible values are the same as in the
+ .Ic gravity
+@@ -966,7 +966,7 @@ points or numbers 1 to 9.
+ .Pp
+ Default is
+ .Li nw .
+-.It Cm maxsizegravity Li nw | w | sw | n | c | s | ne | e | se
++.It Cm maxsizegravity Brq Cm nw | w | sw | n | c | s | ne | e | se
+ Set the default gravity new self-maximized windows will get.
+ Possible values are the same as in the
+ .Ic gravity
+@@ -975,7 +975,7 @@ points or numbers 1 to 9.
+ .Pp
+ Default is
+ .Li c .
+-.It Cm transgravity Li nw | w | sw | n | c | s | ne | e | se
++.It Cm transgravity Brq Cm nw | w | sw | n | c | s | ne | e | se
+ Set the default gravity new transient windows will get.
+ Possible values are the same as in the
+ .Ic gravity
+@@ -984,7 +984,7 @@ points or numbers 1 to 9.
+ .Pp
+ Default is
+ .Li c .
+-.It Cm bargravity Li nw | w | sw | n | c | s | ne | e | se
++.It Cm bargravity Brq Cm nw | w | sw | n | c | s | ne | e | se
+ Select the location where message and prompt bars appear.
+ .Pp
+ Default is
+@@ -1017,7 +1017,7 @@ Determine the width of the input window.
+ .Pp
+ Default is
+ .Li 200 .
+-.It Cm barinpadding Li 0 | 1
++.It Cm barinpadding Brq Cm 0 | 1
+ If there is padding, determines whether the bar appears at the edge of
+ the screen
+ .Pq Li 1
+@@ -1035,7 +1035,7 @@ grabs directly.
+ .Pp
+ The default value is
+ .Li top .
+-.It Cm waitcursor Li 0 | 1
++.It Cm waitcursor Brq Cm 0 | 1
+ Determine whether to change the rat cursor when waiting for a key
+ .Pq Li 1
+ or not
+@@ -1054,7 +1054,7 @@ command.
+ .Pp
+ Default is
+ .Li %n%s%t .
+-.It Cm winname Li title | name | class
++.It Cm winname Brq Cm title | name | class
+ Choose what is considered the "name" of the window by
+ .Nm :
+ .Pp
+@@ -1103,7 +1103,7 @@ and vertical padding to
+ .Pp
+ Default is
+ .Li 4 0 .
+-.It Cm winliststyle Li row | column
++.It Cm winliststyle Brq Cm row | column
+ Determines whether windows are shown in rows or in columns.
+ .Pp
+ Default is column.
+@@ -1122,14 +1122,14 @@ Specify maximum number of values kept in input history.
+ .Pp
+ Default is
+ .Li 20 .
+-.It Cm historycompaction Li 0 | 1
++.It Cm historycompaction Brq Cm 0 | 1
+ Decide if new input lines added to history delete
+ older equal lines from history.
+ .Pp
+ Default is
+ .Li 1
+ (on).
+-.It Cm historyexpansion Li 0 | 1
++.It Cm historyexpansion Brq Cm 0 | 1
+ Decide if history expansion using ! is available.
+ (Can only be activated when compiled with readline's libhistory.)
+ .It Cm msgwait Ar seconds

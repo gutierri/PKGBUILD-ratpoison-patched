@@ -1,0 +1,114 @@
+From f5e88e60b9cfcae5faee0ad1832a4072734e8109 Mon Sep 17 00:00:00 2001
+From: Lincoln de Sousa <lincoln@comum.org>
+Date: Sun, 2 Jan 2011 22:07:08 -0200
+Subject: [PATCH] Setting new hints: _NET_WM_DESKTOP and
+ _NET_CLIENT_LIST{_STACKED,}
+
+Now, it is possible to list list windows of groups and all windows
+mapped into a group receives the desktop id in the _NET_WM_DESKTOP.
+---
+ src/ewmh.c  | 42 ++++++++++++++++++++++++++++++++++++++++++
+ src/ewmh.h  |  2 ++
+ src/group.c |  6 ++++++
+ 3 files changed, 50 insertions(+)
+
+diff --git a/src/ewmh.c b/src/ewmh.c
+index 755fa2d..8112f21 100644
+--- a/src/ewmh.c
++++ b/src/ewmh.c
+@@ -72,3 +72,45 @@ ewmh_set_current_desktop (int group)
+                    XA_CARDINAL, 32, PropModeReplace,
+                    (unsigned char *) data, 1);
+ }
++
++void
++ewmh_set_client_list ()
++{
++  rp_window_elem *we;
++  int count, i, j;
++  Window *windows, *stacked_windows;
++
++  count = list_size (&rp_current_group->mapped_windows);
++  windows = xmalloc (sizeof (Window) * count);
++  stacked_windows = xmalloc (sizeof (Window) * count);
++  i = 0;
++
++  list_for_each_entry (we, &rp_current_group->mapped_windows, node)
++    windows[i++] = we->win->w;
++  for (i = 0, j = count-1; j >= 0; j--, i++)
++    stacked_windows[j] = windows[i];
++
++  XChangeProperty (dpy, DefaultRootWindow (dpy),
++                   XInternAtom (dpy, "_NET_CLIENT_LIST", False),
++                   XA_WINDOW, 32, PropModeReplace,
++                   (unsigned char *) windows, count);
++  XChangeProperty (dpy, DefaultRootWindow (dpy),
++                   XInternAtom (dpy, "_NET_CLIENT_LIST_STACKING", False),
++                   XA_WINDOW, 32, PropModeReplace,
++                   (unsigned char *) stacked_windows, count);
++  free (windows);
++  free (stacked_windows);
++}
++
++void
++ewmh_set_wm_desktop (rp_window *window)
++{
++  unsigned long data[1];
++
++  data[0] = rp_current_group->number;
++  XChangeProperty (dpy, window->w,
++                   XInternAtom (dpy, "_NET_WM_DESKTOP", False),
++                   XA_CARDINAL, 32, PropModeReplace,
++                   (unsigned char *) data, 1);
++
++}
+diff --git a/src/ewmh.h b/src/ewmh.h
+index 5f4ae5d..a286b8d 100644
+--- a/src/ewmh.h
++++ b/src/ewmh.h
+@@ -24,5 +24,7 @@
+ void init_ewmh (void);
+ void ewmh_set_number_of_desktops (void);
+ void ewmh_set_current_desktop (int group);
++void ewmh_set_client_list (void);
++void ewmh_set_wm_desktop (rp_window *window);
+ 
+ #endif
+diff --git a/src/group.c b/src/group.c
+index 01d6e27..4c4c5f1 100644
+--- a/src/group.c
++++ b/src/group.c
+@@ -34,6 +34,7 @@ set_current_group_1 (rp_group *g)
+ 
+   ewmh_set_number_of_desktops ();
+   ewmh_set_current_desktop (g->number);
++  ewmh_set_client_list ();
+ }
+ 
+ void
+@@ -350,6 +351,8 @@ group_insert_window (struct list_head *h, rp_window_elem *w)
+     }
+ 
+   list_add_tail(&w->node, h);
++  ewmh_set_wm_desktop (w->win);
++  ewmh_set_client_list ();
+ }
+ 
+ static int
+@@ -394,6 +397,8 @@ group_add_window (rp_group *g, rp_window *w)
+ 
+   /* Finally, add it to our list. */
+   list_add_tail (&we->node, &g->unmapped_windows);
++  ewmh_set_wm_desktop (we->win);
++  ewmh_set_client_list ();
+ }
+ 
+ void
+@@ -484,6 +489,7 @@ groups_del_window (rp_window *win)
+     {
+       group_del_window (cur, win);
+     }
++  ewmh_set_client_list ();
+ }
+ 
+ rp_window *
