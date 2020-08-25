@@ -1,0 +1,112 @@
+commit 45bd134cae81d9809e398f8e2f42d1e862245635
+Author: joshua stein <jcs@jcs.org>
+Date:   Tue Sep 19 18:21:01 2017 -0500
+
+    Add "ignorehints" setting, to ignore PResizeInc hints
+    
+    Useful for getting terminals to take up the entire frame size rather
+    than constraining to multiple of per-cell width/height
+
+diff --git a/src/actions.c b/src/actions.c
+index e65ca0c..aafa4e9 100644
+--- a/src/actions.c
++++ b/src/actions.c
+@@ -182,6 +182,7 @@ static cmdret * set_framemsgwait(struct cmdarg **args);
+ static cmdret * set_startupmessage(struct cmdarg **args);
+ static cmdret * set_warp(struct cmdarg **args);
+ static cmdret * set_rudeness(struct cmdarg **args);
++static cmdret * set_ignorehints(struct cmdarg **args);
+ 
+ /* command function prototypes. */
+ static cmdret *cmd_abort (int interactive, struct cmdarg **args);
+@@ -359,6 +360,7 @@ init_set_vars (void)
+   add_set_var ("historysize", set_historysize, 1, "", arg_NUMBER);
+   add_set_var ("infofmt", set_infofmt, 1, "", arg_REST);
+   add_set_var ("inputwidth", set_inputwidth, 1, "", arg_NUMBER);
++  add_set_var ("ignorehints", set_ignorehints, 1, "", arg_STRING);
+   add_set_var ("maxsizegravity", set_maxsizegravity, 1, "", arg_GRAVITY);
+   add_set_var ("maxundos", set_maxundos, 1, "", arg_NUMBER);
+   add_set_var ("msgwait", set_msgwait, 1, "", arg_NUMBER);
+@@ -4485,6 +4487,24 @@ set_bwcolor (struct cmdarg **args)
+   return cmdret_new (RET_SUCCESS, NULL);
+ }
+ 
++static cmdret *
++set_ignorehints (struct cmdarg **args)
++{
++  if (args[0] == NULL)
++    return cmdret_new (RET_SUCCESS, "%s", defaults.ignorehints ? "on":"off");
++
++  if (!strcasecmp (ARG_STRING(0), "on"))
++    defaults.ignorehints = 1;
++  else if (!strcasecmp (ARG_STRING(0), "off"))
++    defaults.ignorehints = 0;
++  else
++    return cmdret_new (RET_FAILURE, "ignorehints: invalid argument");
++
++  force_maximize (current_window());
++
++  return cmdret_new (RET_SUCCESS, NULL);
++}
++
+ cmdret *
+ cmd_setenv (int interactive UNUSED, struct cmdarg **args)
+ {
+diff --git a/src/data.h b/src/data.h
+index ac87fea..c91b398 100644
+--- a/src/data.h
++++ b/src/data.h
+@@ -301,6 +301,9 @@ struct rp_defaults
+ 
+   /* Frame indicator format */
+   char *frame_fmt;
++
++  /* Whether to ignore window size hints */
++  int ignorehints;
+ };
+ 
+ /* Information about a child process. */
+diff --git a/src/main.c b/src/main.c
+index dbd4519..2e11730 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -284,6 +284,8 @@ init_defaults (void)
+   defaults.history_expansion = False;
+   defaults.frame_selectors = xstrdup ("");
+   defaults.maxundos = 20;
++
++  defaults.ignorehints = 0;
+ }
+ 
+ int
+diff --git a/src/manage.c b/src/manage.c
+index 510f730..6ea4885 100644
+--- a/src/manage.c
++++ b/src/manage.c
+@@ -620,7 +620,7 @@ maximize_transient (rp_window *win)
+ 
+   /* Make sure we maximize to the nearest Resize Increment specified
+      by the window */
+-  if (win->hints->flags & PResizeInc)
++  if (!defaults.ignorehints && win->hints->flags & PResizeInc)
+     {
+       int amount;
+       int delta;
+@@ -716,7 +716,7 @@ maximize_normal (rp_window *win)
+ 
+   /* Make sure we maximize to the nearest Resize Increment specified
+      by the window */
+-  if (win->hints->flags & PResizeInc)
++  if (!defaults.ignorehints && win->hints->flags & PResizeInc)
+     {
+       int amount;
+       int delta;
+@@ -791,7 +791,7 @@ force_maximize (rp_window *win)
+      already "maximized" X11 will optimize away the event since to
+      geometry changes were made. This initial resize solves the
+      problem. */
+-  if (win->hints->flags & PResizeInc)
++  if (!defaults.ignorehints && win->hints->flags & PResizeInc)
+     {
+       XMoveResizeWindow (dpy, win->w, win->scr->left + win->x, win->scr->top + win->y,
+                          win->width + win->hints->width_inc,

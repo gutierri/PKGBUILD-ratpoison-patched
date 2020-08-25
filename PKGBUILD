@@ -15,12 +15,24 @@ source=("git+https://git.savannah.nongnu.org/git/ratpoison.git"
 md5sums=("SKIP"
          "1324efe7bebef62faf366031d93f1283")
 
+prepare() {
+  cd "${srcdir}/${_pkgname}"
+
+  git apply ../../patchs/001-add-removeleft-up-right-down-commands.patch
+  git apply ../../patchs/002-manpage-layout-fixes.patch
+  git apply ../../patchs/003-ignorehints.patch
+  git apply ../../patchs/004-EWMH.patch
+  git apply ../../patchs/005-EWMH.patch
+  git apply ../../patchs/006-EWMH.patch
+  git apply ../../patchs/007-EWMH.patch
+
+}
+
 build() {
   cd "${srcdir}/${_pkgname}"
 
   # FS#38726, v1.4.6-2 
   sed -i 's|PRINT_ERROR (("XGetWMName|PRINT_DEBUG (("XGetWMName|' src/manage.c
-
 
   ./autogen.sh
   ./configure --prefix=/usr
