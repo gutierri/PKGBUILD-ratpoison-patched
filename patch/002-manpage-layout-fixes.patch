@@ -74,10 +74,10 @@ index ebfef14..043f364 100644
  is executed.
  The next key then executes the command in keymap
  .Li root
-@@ -701,7 +701,7 @@ Output the list of all screens.
- The screens are separated by commas. Each screen is shown as 6 values:
- its number, its x-coordinate, its y-coordinate, its width, its height
- and if it is currently selected (1=true, 0=false).
+@@ -703,7 +703,7 @@ The screens are separated by commas.
+ Each screen is shown as 6 values: its number, its x-coordinate, its
+ y-coordinate, its width, its height and if it is currently selected
+ (1=true, 0=false).
 -.It Ic select ( Cm \- | Ar name | Ar number ) Pq Ic C\-t \&'
 +.It Ic select Bro Cm \- | Ar name | Ar number Brc Pq Ic C\-t \&'
  If a number is given, switch to the window with number
